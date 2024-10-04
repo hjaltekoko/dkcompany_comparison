@@ -1,0 +1,7 @@
+pandas
+time
+io
+requests
+bs4
+math
+xlsxwriter
