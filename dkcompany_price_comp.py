@@ -5,6 +5,17 @@ from io import BytesIO
 import requests
 from bs4 import BeautifulSoup
 import math
+from datetime import datetime
+import re
+
+def create_file_name(store_name):
+    # Get current date and time
+    now = datetime.now()
+
+    # Convert to string suitable for a file name
+    current_time_str = now.strftime("%Y%m%d_%H%M%S")
+
+    return store_name + current_time_str + "_data.xlsx"
 
 def fetch_page_number_magasin(url):
     page = requests.get(url)
@@ -65,8 +76,8 @@ def fetch_price_boozt(url,max_pages):
                     if product_price_container:
                         product_price = product_price_container.get_text().split("kr")
 
-                        # Clean up the price list
-                        product_price = [price.strip() for price in product_price if price.strip()]
+                        # Clean up the price list using regex to extract only numbers
+                        product_price = [re.sub(r'\D', '', price) for price in product_price if price.strip()]  # Remove non-digit characters
 
                         if len(product_price) > 1:
                             sale_price = int(product_price[0])
@@ -136,10 +147,18 @@ def fetch_price_magasin(url,pages):
     df = pd.DataFrame(product_data)
     return df
 
-def scrape_multiple_urls(urls_to_scrape,store_name):
+def scrape_multiple_urls(urls_to_scrape, store_name):
     combined_df = pd.DataFrame(columns=["Product Name", "Product Brand", "Original Price", "Sale Price"])
     
-    for url in urls_to_scrape:
+    total_urls = len(urls_to_scrape)
+    progress_bar = st.progress(0)  # Initialize progress bar
+    status_text = st.empty()  # Placeholder for status updates
+
+    for index, url in enumerate(urls_to_scrape, start=1):
+        # Update the status and progress bar
+        status_text.write(f"Processing {index} of {total_urls} URLs...")
+        progress_bar.progress(index / total_urls)
+
         # Get the DataFrame from each URL and concatenate it with the existing data
         if store_name == "Magasin":
             pages = fetch_page_number_magasin(url)
@@ -147,8 +166,13 @@ def scrape_multiple_urls(urls_to_scrape,store_name):
         else:
             pages = fetch_page_number_boozt(url)
             df = fetch_price_boozt(url, pages)
+        
         combined_df = pd.concat([combined_df, df], ignore_index=True)
-    
+
+    # Clear the progress bar and status text after completion
+    status_text.write("Scraping completed!")
+    progress_bar.empty()
+
     return combined_df
 
 # Streamlit app starts here
@@ -169,7 +193,7 @@ magasin_urls = [
     "https://www.magasin.dk/maerker/pulz-jeans/",
 ]
 
-boozt_urls = urls = [
+boozt_urls = [
     "https://www.boozt.com/dk/da/saint-tropez",
     "https://www.boozt.com/dk/da/gestuz",
     "https://www.boozt.com/dk/da/inwear",
@@ -207,6 +231,6 @@ if st.button("Scrape Data and Download Excel"):
         st.download_button(
             label="Download Excel",
             data=output,
-            file_name=f"{store}_data.xlsx",
+            file_name=create_file_name(store),
             mime="application/vnd.ms-excel"
         )
