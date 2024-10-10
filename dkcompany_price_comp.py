@@ -7,10 +7,14 @@ from bs4 import BeautifulSoup
 import math
 from datetime import datetime
 import re
+import pytz
 
 def create_file_name(store_name):
     # Get current date and time
-    now = datetime.now()
+    
+    local_timezone = pytz.timezone('Europe/Copenhagen')
+
+    now = datetime.now(local_timezone)
 
     # Convert to string suitable for a file name
     current_time_str = now.strftime("%Y%m%d_%H%M%S")
